@@ -5,7 +5,8 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "server": "nodemon index.js",
+    "start": "node src/index.js",
+    "server": "nodemon src/index.js",
     "client": "cd ../client && npm start",
     "dev": "concurrently --kill-others-on-fail \"npm run-script server\" \"npm run-script client\""
   },
@@ -13,7 +14,10 @@
   "license": "ISC",
   "dependencies": {
     "cors": "^2.8.5",
-    "express": "^4.17.1"
+    "express": "^4.17.1",
+    "mongoose": "^5.12.7",
+    "socket.io": "^4.0.2",
+    "validator": "^13.6.0"
   },
   "devDependencies": {
     "concurrently": "^6.0.2",
