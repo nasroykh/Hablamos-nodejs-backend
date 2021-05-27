@@ -1,28 +1,35 @@
 /* optional modules to install: bad-words, moment */
+/* IMPORTING MODULES */
 const express = require('express');
 const cors = require('cors');
 const mongoose = require('mongoose');
 const socketio = require('socket.io');
 const http = require('http');
 
+/* IMPORTING LOCAL FILES */
 require('./db/mongoose');
+const userRouter = require('./routers/userRouters'); 
+const convRouter = require('./routers/convRouters'); 
 
-const User = require('./models/user');
-const Conv = require('./models/conv');
-
+/* EXPRESS FUNCTIONS */
 const app = express();
-app.use(cors());
 
+app.use(cors());
+app.use(express.json());
+app.use(userRouter);
+app.use(convRouter);
+
+/* SERVER VARIABLES */
 const port = process.env.PORT || 4444;
 const server = http.createServer(app);
 
+/* WEBSOCKET CONFIG */
 const io = socketio(server, {
     cors: {
         origin: '*',
     }
 });
 
-app.use(express.json());
 
 io.on('connection', (socket) => {
     console.log('New WebSocket connection');
@@ -94,84 +101,7 @@ io.on('connection', (socket) => {
     })
 });
 
-
-
-app.get('/users', async (req,res) => {
-    try {
-        // const newUser = new User({
-        //     username: 'hafid',
-        //     friends: [
-        //         'hamid'
-        //     ]
-        // });
-        // const newUser2 = new User({
-        //     username: 'hamid',
-        //     friends: [
-        //         'hafid'
-        //     ]
-        // });
-        // await newUser.save();
-        // await newUser2.save();
-        const users = await User.find({});
-        res.status(200).send(users)
-    } catch (e) {
-        res.status(404).send(e);
-    }
-});
-
-app.post('/conv', async (req,res) => {
-    try {
-        // await User.find({username: req.body.part[0]}, (e, el) => {
-        //     console.log(el);
-        // })
-        // await User.find({username: req.body.part[1]}, (e, el) => {
-        //     console.log(el);
-        // })
-        const user1 = req.body.part[0];
-        const user2 = req.body.part[1];
-        const date = Date.now();
-        const message = {
-            id: mongoose.Types.ObjectId(),
-            senderId: user1,
-            message: req.body.message,
-            sentAt: date
-        };
-
-        // const found = await Conv.findById('6097c15e12d73a2b922a05c8')
-        // console.log(found);
-
-        await Conv.findByIdAndUpdate('6097cb029c24c53cd0483000',{$push: {messages: {
-            messageId: message.id,
-            senderId: user2,
-            message: message.message,
-            sentAt: date
-        }}})
-
-        // const newConv = new Conv({
-        //     participants: [user1,user2],
-        //     createdAt: date,
-        //     messages: [{
-        //         messageId: message.id,
-        //         senderId: user1,
-        //         message: message.message,
-        //         sentAt: date
-        //     }]
-        // })
-
-        // await newConv.save();
-
-        const convs = await Conv.find({});
-        res.send(convs);
-    } catch (e) {
-        console.log(e);
-    }
-
-});
-
-app.post('/request', (req,res) => {
-
-});
-
+/* SERVER LISTENING */
 server.listen(port, () => {
     console.log(`Server listens to port ${port}`);
 })
