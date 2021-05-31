@@ -9,7 +9,7 @@ const Conv = mongoose.model('conv', {
         }
     ],
     createdAt: {
-        type: String
+        type: Number
     },
     messages: [
         {
@@ -20,7 +20,7 @@ const Conv = mongoose.model('conv', {
                 type: String
             },
             sentAt: {
-                type: String
+                type: Number
             }
         }
     ]

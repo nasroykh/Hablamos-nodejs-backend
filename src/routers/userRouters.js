@@ -68,7 +68,7 @@ router.post('/users/logout', auth, async (req, res) => {
         req.user.tokens = req.user.tokens.filter(token => token.token !== req.token);
         req.user.status = 'Offline';
         await req.user.save();
-        res.send()
+        res.status(200).send('Logged out')
     } catch (e) {
         res.status(500).send();
     }
@@ -80,7 +80,7 @@ router.post('/users/logoutAll', auth, async (req, res) => {
         req.user.tokens = [];
         req.user.status = 'Offline';
         await req.user.save();
-        res.send()
+        res.status(200).send('Logged out of all devices');
     } catch (e) {
         res.status(500).send();
     }
@@ -140,6 +140,8 @@ router.post('/users/add', auth, async (req, res) => {
             return res.status(400).send('Cannot send request to yourself');
         }
 
+        req.io.to(user.socketId).emit('notify:request', req.user._id);
+
         await User.findByIdAndUpdate(_id, {$push: {friendRequests: req.user._id}});
 
         res.status(200).send('Sent !');
@@ -174,6 +176,8 @@ router.post('/users/accept', auth, async (req, res) => {
 
         await User.findByIdAndUpdate(req.user._id, {$push: {friends: _id}});
 
+        req.io.to(user.socketId).emit('notify:accepted', req.user._id);
+
         res.status(200).send('Accepted !');
 
     } catch (e) {
@@ -183,6 +187,8 @@ router.post('/users/accept', auth, async (req, res) => {
 
 router.get('/users/friends', auth, async (req, res) => {
     try {
+        // req.io.to('PU2QFWatR-1YZsKBAAAH').emit('message', 'Friends show');
+        
         let friends = [];
 
         for (let i = 0; i < req.user.friends.length; i++) {

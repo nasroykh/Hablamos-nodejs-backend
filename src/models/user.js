@@ -55,7 +55,10 @@ const userSchema = new mongoose.Schema({
             type: String,
             required: true
         }
-    }]
+    }],
+    socketId: {
+        type: String
+    }
 });
 
 userSchema.statics.findByCredentials = async (identifier, password) => {
