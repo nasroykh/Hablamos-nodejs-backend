@@ -100,6 +100,7 @@ userSchema.methods.generateAuthToken = async function() {
     const token = jwt.sign({_id: user._id.toString()}, 'wya3tinima7nayamima');
 
     user.tokens = await user.tokens.concat({token});
+    user.status = 'Online';
     await user.save();
 
     return token;

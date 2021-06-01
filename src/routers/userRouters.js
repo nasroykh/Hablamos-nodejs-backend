@@ -5,7 +5,7 @@ const router = new express.Router();
 const auth = require('../middleware/auth');
 
 //Sign up router
-router.post('/users', async (req,res) => {
+router.post('/users/signup', async (req,res) => {
     try {
         let {username, email, password, firstName, lastName} = req.body;
 
@@ -49,14 +49,14 @@ router.post('/users/login', async (req, res) => {
     try {
 
         let {identifier, password} = req.body;
-       
+
         if (identifier) {
             identifier = identifier.toLowerCase().trim();
         }
 
         const user = await User.findByCredentials(identifier, password);
         const token = await user.generateAuthToken();
-        res.send({user, token});
+        res.status(200).send({user, token});
     } catch (e) {
         res.status(400).send('Unable to login');
     }
@@ -83,6 +83,18 @@ router.post('/users/logoutAll', auth, async (req, res) => {
         res.status(200).send('Logged out of all devices');
     } catch (e) {
         res.status(500).send();
+    }
+});
+
+router.get('/users/check', auth, async (req, res) => {
+    try {
+        if (req.user) {
+            res.status(200).send({user: req.user, token: req.token});
+        } else {
+            throw new Error();
+        }
+    } catch (error) {
+        res.status(404).send('Token is invalid');
     }
 });
 
