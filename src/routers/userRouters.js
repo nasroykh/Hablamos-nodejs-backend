@@ -56,6 +56,16 @@ router.post('/users/login', async (req, res) => {
 
         const user = await User.findByCredentials(identifier, password);
         const token = await user.generateAuthToken();
+        
+        for (let i = 0; i < user.friends.length; i++) {
+            let friend = await User.findById(user.friends[i]);
+            
+            user.friends[i] = {
+                _id: friend._id,
+                username: friend.username
+            }
+        }
+        
         res.status(200).send({user, token});
     } catch (e) {
         res.status(400).send('Unable to login');
@@ -89,12 +99,20 @@ router.post('/users/logoutAll', auth, async (req, res) => {
 router.get('/users/check', auth, async (req, res) => {
     try {
         if (req.user) {
+            for (let i = 0; i < req.user.friends.length; i++) {
+                let friend = await User.findById(req.user.friends[i]);
+                
+                req.user.friends[i] = {
+                    _id: friend._id,
+                    username: friend.username
+                }
+            }
             res.status(200).send({user: req.user, token: req.token});
         } else {
-            throw new Error();
+            res.status(404).send({error: 'Session expired'});
         }
-    } catch (error) {
-        res.status(404).send('Token is invalid');
+    } catch (e) {
+        res.status(500).send(e);
     }
 });
 
@@ -118,6 +136,16 @@ router.get('/users', auth, async (req, res) => {
         
         if (!users.length) {
             return res.status(404).send('Not found');
+        }
+
+        for (let i = 0; i < users.length; i++) {
+            let isFriend = req.user.friends.includes(users[i]._id);
+            let sentRequest = users[i].friendRequests.includes(req.user._id);
+
+            if (isFriend || sentRequest) {
+                users.splice(i, 1);
+                i--;
+            }
         }
 
         res.status(200).send(users);
@@ -152,7 +180,7 @@ router.post('/users/add', auth, async (req, res) => {
             return res.status(400).send('Cannot send request to yourself');
         }
 
-        req.io.to(user.socketId).emit('notify:request', req.user._id);
+        req.io.to(user.socketId).emit('notify:request', {_id: req.user._id, username: req.user.username});
 
         await User.findByIdAndUpdate(_id, {$push: {friendRequests: req.user._id}});
 
@@ -188,7 +216,7 @@ router.post('/users/accept', auth, async (req, res) => {
 
         await User.findByIdAndUpdate(req.user._id, {$push: {friends: _id}});
 
-        req.io.to(user.socketId).emit('notify:accepted', req.user._id);
+        req.io.to(user.socketId).emit('notify:accepted', {_id: req.user._id, username: req.user.username});
 
         res.status(200).send('Accepted !');
 
@@ -199,7 +227,6 @@ router.post('/users/accept', auth, async (req, res) => {
 
 router.get('/users/friends', auth, async (req, res) => {
     try {
-        // req.io.to('PU2QFWatR-1YZsKBAAAH').emit('message', 'Friends show');
         
         let friends = [];
 
@@ -208,7 +235,8 @@ router.get('/users/friends', auth, async (req, res) => {
 
             friends.push({
                 _id: friend._id,
-                username: friend.username
+                username: friend.username,
+                status: friend.status
             })
         }
 

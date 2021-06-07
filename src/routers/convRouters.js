@@ -32,15 +32,26 @@ router.get('/convs', auth, async (req, res) => {
         }
 
         //find all user convs
-        let convs = await Conv.find({participants: {$all: [req.user._id] }});
+        let convs = await Conv.find({participants: {$all: [req.user._id] }}).select('-messages');
 
         if (!convs) {
             return res.status(404).send('No conversations')
         }
 
+        for (let i = 0; i < convs.length; i++) {
+            for (let j = 0; j < convs[i].participants.length; j++) {
+                let part = await User.findById(convs[i].participants[j]);
+
+                convs[i].participants[j] = {
+                    _id: part._id,
+                    username: part.username
+                }
+            }
+        }
+
         res.status(200).send(convs);
     } catch (e) {
-        return res.status(500).send(e);
+            return res.status(500).send(e);
     }
 });
 
@@ -48,6 +59,10 @@ router.post('/convs/message', auth, async (req, res) => {
     try {
         let {message, friendId, _id} = req.body;
         let time = Date.now();
+
+        if (!message) {
+            return res.status(400).send('No message sent') 
+        }
 
         if (!_id) {
             let conv = new Conv({
@@ -63,8 +78,11 @@ router.post('/convs/message', auth, async (req, res) => {
             });
     
             await conv.save();
-            
-            res.status(201).send('Conversation created and message sent');
+
+            let user = await User.findById(friendId);
+            req.io.to(user.socketId).emit('notify:message', {_id: req.user._id, username: req.user.username});
+
+            return res.status(201).send(conv);
         }
 
         await Conv.findByIdAndUpdate(_id, {$push: {
@@ -77,8 +95,9 @@ router.post('/convs/message', auth, async (req, res) => {
 
         let user = await User.findById(friendId);
 
-        req.io.to(user.socketId).emit('notify:message', req.user._id);
-        req.io.to(_id).emit('message:receive', {message, sender: req.user._id, time})
+        req.io.to(user.socketId).emit('notify:message', {_id: req.user._id, username: req.user.username});
+        req.io.to(_id).emit('message:receive', {message, sender: req.user._id, time});
+        
         res.status(201).send('Message sent');
 
     } catch (e) {

@@ -73,13 +73,13 @@ userSchema.statics.findByCredentials = async (identifier, password) => {
 
 
     if (!user) {
-        throw new Error('Unable to login');
+        return {error: 'error a sd'}
     }
 
     const isMatch = await bcrypt.compare(password, user.password);
 
     if (!isMatch) {
-        throw new Error('Unable to login')
+        return {error: 'error a sd'}
     }
 
     return user;

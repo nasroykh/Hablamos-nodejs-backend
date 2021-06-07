@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node src/index.js",
+    "start": "node index.js",
     "server": "nodemon src/index.js",
     "client": "cd ../client && npm start",
     "dev": "concurrently --kill-others-on-fail \"npm run-script server\" \"npm run-script client\""
