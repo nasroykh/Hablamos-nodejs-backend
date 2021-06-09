@@ -146,6 +146,12 @@ router.get('/users', auth, async (req, res) => {
                 users.splice(i, 1);
                 i--;
             }
+
+            if (users[i]) {
+                users[i].friends = undefined;
+                users[i].friendRequests = undefined;
+                users[i].email = undefined;
+            }
         }
 
         res.status(200).send(users);
@@ -184,7 +190,7 @@ router.post('/users/add', auth, async (req, res) => {
 
         await User.findByIdAndUpdate(_id, {$push: {friendRequests: req.user._id}});
 
-        res.status(200).send('Sent !');
+        res.status(200).send(user);
 
     } catch (e) {
         res.status(500).send(e);
@@ -303,14 +309,26 @@ router.delete('/users/requests', auth, async (req, res) => {
         if (sent) {
             let user = await User.findById(_id);
 
+            if (!user) {
+                return res.status(404).send('User not found');
+            }
+
             if (!user.friendRequests.includes(req.user._id)) {
                 return res.status(404).send('No request sent to this user');
+            }
+
+            if (user.friends.includes(req.user._id)) {
+                return res.status(400).send('Already friends');
+            }
+    
+            if (req.user.friendRequests.includes(_id)) {
+                return res.status(400).send('User already sent you a request');
             }
 
             user.friendRequests = user.friendRequests.filter(request => request.toString() !== req.user._id.toString());
             await User.findByIdAndUpdate(_id, {friendRequests: user.friendRequests});
             
-            return res.status(200).send('Sent request canceled');
+            return res.status(200).send(user);
         }
 
         if (!req.user.friendRequests.includes(_id)) {
