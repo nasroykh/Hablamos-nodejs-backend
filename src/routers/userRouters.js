@@ -3,6 +3,11 @@ const express = require('express');
 const User = require('../models/user');
 const router = new express.Router();
 const auth = require('../middleware/auth');
+const upload = require('../middleware/uploadFile');
+const sharp = require('sharp');
+
+
+
 
 //Sign up router
 router.post('/users/signup', async (req,res) => {
@@ -43,6 +48,42 @@ router.post('/users/signup', async (req,res) => {
         res.status(400).send(e)
     }
 });
+
+//Upload profile picture router
+router.post('/users/picture', auth, upload.single('picture'), async (req, res) => {
+
+    const buffer = await sharp(req.file.buffer).resize({width: 200, height: 200}).png().toBuffer();
+
+    req.user.profilePicture = buffer;
+    
+    await req.user.save();
+    
+    res.status(201).send('Picture uploaded');
+}, (error, req, res, next) => {
+    res.status(400).send({error: error.message});
+});
+
+router.get('/users/:_id/picture', async (req, res) => {
+    try {
+        const user = await User.findById(req.params._id)
+
+        if (!user) {
+            throw new Error();
+        }
+
+        if (!user.profilePicture) {
+            const admin = await User.findById('60c787e569a636aac0c7e25d');
+            res.set('Content-Type', 'image/png');
+            return res.status(200).send(admin.profilePicture);
+        }
+
+        res.set('Content-Type', 'image/png');
+        res.status(200).send(user.profilePicture);
+
+    } catch (e) {
+        res.status(404).send()
+    }
+})
 
 //Login router
 router.post('/users/login', async (req, res) => {
@@ -346,31 +387,5 @@ router.delete('/users/requests', auth, async (req, res) => {
         res.status(500).send(e);
     }
 });
-
-
-
-
-// router.get('/users', auth, async (req,res) => {
-//     try {
-//         const users = await User.find({});
-//         res.status(200).send(users)
-//     } catch (e) {
-//         res.status(404).send(e);
-//     }
-// });
-
-// router.get('/users/me', auth, async (req,res) => {
-//     res.send(req.user);
-// });
-
-// router.delete('/users/me', auth, async (req,res) => {
-//     try {
-//         await req.user.remove();
-//         res.send(req.user);
-//     } catch (e) {
-//         res.status(500).send(e);
-//     }
-// });
-
 
 module.exports = router;

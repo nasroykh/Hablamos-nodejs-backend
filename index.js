@@ -35,7 +35,6 @@ app.use(function(req, res, next) {
 app.use(userRouter);
 app.use(convRouter);
 
-
 io.on('connection', (socket) => {
 
     console.log('New WebSocket connection');
