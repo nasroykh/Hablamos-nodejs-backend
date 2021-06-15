@@ -83,7 +83,7 @@ router.get('/users/:_id/picture', async (req, res) => {
     } catch (e) {
         res.status(404).send()
     }
-})
+});
 
 //Login router
 router.post('/users/login', async (req, res) => {

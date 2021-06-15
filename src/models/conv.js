@@ -21,6 +21,9 @@ const Conv = mongoose.model('conv', {
             },
             sentAt: {
                 type: Number
+            },
+            file: {
+                type: Buffer
             }
         }
     ]

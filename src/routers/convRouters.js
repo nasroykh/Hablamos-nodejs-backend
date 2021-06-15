@@ -3,6 +3,8 @@ const router = new express.Router();
 const Conv = require('../models/conv');
 const auth = require('../middleware/auth');
 const User = require('../models/user');
+const upload = require('../middleware/uploadFile');
+const sharp = require('sharp');
 
 router.get('/convs', auth, async (req, res) => {
     try {
@@ -102,6 +104,86 @@ router.post('/convs/message', auth, async (req, res) => {
 
     } catch (e) {
         res.status(500).send(e);
+    }
+});
+
+router.post('/convs/file', auth, upload.single('file'), async (req, res) => {
+    try {
+        let {friendId, _id} = req.query;
+        let time = Date.now();
+        
+        if (!req.file) {
+            return res.status(400).send('No file sent') 
+        }
+    
+        let file = await sharp(req.file.buffer).png().toBuffer();
+    
+        if (!_id) {
+            let conv = new Conv({
+                participants: [req.user._id, friendId],
+                createdAt: time,
+                messages: [
+                    {
+                        sender: req.user._id,
+                        file,
+                        sentAt: time
+                    }
+                ]
+            });
+    
+            await conv.save();
+    
+            let user = await User.findById(friendId);
+            req.io.to(user.socketId).emit('notify:message', {_id: req.user._id, username: req.user.username});
+    
+            return res.status(201).send({conv});
+        }
+    
+        await Conv.findByIdAndUpdate(_id, {$push: {
+            messages: {
+                sender: req.user._id,
+                file,
+                sentAt: time
+            }
+        }});
+    
+        let newConv = await Conv.findOne({messages: {$elemMatch: {file}}}).select('-participants -_id -createdAt');
+        let lastMessageId = newConv.messages[newConv.messages.length-1]._id.toString();
+    
+        let user = await User.findById(friendId);
+    
+        req.io.to(user.socketId).emit('notify:message', {_id: req.user._id, username: req.user.username});
+        req.io.to(_id).emit('message:receive', {file: true, lastMessageId, sender: req.user._id, time});
+        
+        res.status(201).send({lastMessageId});
+    } catch (e) {
+        console.log(e)        
+    }
+}, (error, req, res, next) => {
+    console.log(error)
+    res.status(400).send({error: error.message});
+});
+
+router.get('/convs/:_id/file', async (req, res) => {
+    try {
+        let conv = await Conv.findOne({messages: {$elemMatch: {_id: req.params._id}}}).select('-participants -_id -createdAt');
+
+        if (!conv) {
+            throw new Error();
+        }
+
+        let message = conv.messages.find(el => el._id.toString() === req.params._id.toString());
+
+        if (!message) {
+            throw new Error();
+        }
+
+
+        res.set('Content-Type', 'image/png');
+        res.status(200).send(message.file);
+
+    } catch (e) {
+        res.status(404).send()
     }
 });
 
