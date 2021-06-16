@@ -116,7 +116,7 @@ router.post('/convs/file', auth, upload.single('file'), async (req, res) => {
             return res.status(400).send('No file sent') 
         }
     
-        let file = await sharp(req.file.buffer).png().toBuffer();
+        let file = await sharp(req.file.buffer).jpeg().toBuffer();
     
         if (!_id) {
             let conv = new Conv({
@@ -177,7 +177,6 @@ router.get('/convs/:_id/file', async (req, res) => {
         if (!message) {
             throw new Error();
         }
-
 
         res.set('Content-Type', 'image/png');
         res.status(200).send(message.file);
