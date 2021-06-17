@@ -8,6 +8,10 @@ const Conv = mongoose.model('conv', {
             required: true
         }
     ],
+    groupName: {
+        type: String,
+        unique: true
+    },
     createdAt: {
         type: Number
     },

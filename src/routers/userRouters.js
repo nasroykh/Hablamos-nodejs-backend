@@ -67,11 +67,7 @@ router.get('/users/:_id/picture', async (req, res) => {
     try {
         const user = await User.findById(req.params._id)
 
-        if (!user) {
-            throw new Error();
-        }
-
-        if (!user.profilePicture) {
+        if (!user || !user.profilePicture) {
             const admin = await User.findById('60c787e569a636aac0c7e25d');
             res.set('Content-Type', 'image/png');
             return res.status(200).send(admin.profilePicture);

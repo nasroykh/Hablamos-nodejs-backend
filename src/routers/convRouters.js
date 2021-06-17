@@ -87,7 +87,7 @@ router.post('/convs/message', auth, async (req, res) => {
             return res.status(201).send(conv);
         }
 
-        await Conv.findByIdAndUpdate(_id, {$push: {
+        let existingConv = await Conv.findByIdAndUpdate(_id, {$push: {
             messages: {
                 sender: req.user._id,
                 message,
@@ -95,9 +95,19 @@ router.post('/convs/message', auth, async (req, res) => {
             }
         }});
 
-        let user = await User.findById(friendId);
+        if (existingConv.participants.length > 2) {
+            for (let i = 0; i < existingConv.participants.length; i++) {
+                if (existingConv.participants[i] !== req.user._id) {
+                    let user = await User.findById(existingConv.participants[i]);
+                    req.io.to(user.socketId).emit('notify:message', {_id: req.user._id, username: existingConv.groupName});
+                }
+            }
+        } else {
+            let user = await User.findById(friendId);
+    
+            req.io.to(user.socketId).emit('notify:message', {_id: req.user._id, username: req.user.username});
+        }
 
-        req.io.to(user.socketId).emit('notify:message', {_id: req.user._id, username: req.user.username});
         req.io.to(_id).emit('message:receive', {message, sender: req.user._id, time});
         
         res.status(201).send('Message sent');
@@ -139,20 +149,31 @@ router.post('/convs/file', auth, upload.single('file'), async (req, res) => {
             return res.status(201).send({conv});
         }
     
-        await Conv.findByIdAndUpdate(_id, {$push: {
+        let existingConv = await Conv.findByIdAndUpdate(_id, {$push: {
             messages: {
                 sender: req.user._id,
                 file,
                 sentAt: time
             }
         }});
+
+        if (existingConv.participants.length > 2) {
+            for (let i = 0; i < existingConv.participants.length; i++) {
+                if (existingConv.participants[i] !== req.user._id) {
+                    let user = await User.findById(existingConv.participants[i]);
+                    req.io.to(user.socketId).emit('notify:message', {_id: req.user._id, username: existingConv.groupName});
+                }
+            }
+        } else {
+
+            let user = await User.findById(friendId);
+    
+            req.io.to(user.socketId).emit('notify:message', {_id: req.user._id, username: req.user.username});
+        }
     
         let newConv = await Conv.findOne({messages: {$elemMatch: {file}}}).select('-participants -_id -createdAt');
         let lastMessageId = newConv.messages[newConv.messages.length-1]._id.toString();
     
-        let user = await User.findById(friendId);
-    
-        req.io.to(user.socketId).emit('notify:message', {_id: req.user._id, username: req.user.username});
         req.io.to(_id).emit('message:receive', {file: true, lastMessageId, sender: req.user._id, time});
         
         res.status(201).send({lastMessageId});
@@ -183,6 +204,39 @@ router.get('/convs/:_id/file', async (req, res) => {
 
     } catch (e) {
         res.status(404).send()
+    }
+});
+
+router.post('/convs/group', auth, async (req, res) => {
+    try {
+        let {participants, groupName} = req.body;
+
+        if (participants.length === 1) {
+            return res.status(400).send('Cannot create a group with only 1 friend')
+        }
+
+        if (!groupName) {
+            return res.status(400).send('Please provide a group name')
+        }
+
+        groupName = groupName.trim();
+
+        participants.push(req.user._id);
+    
+        let time = Date.now();
+    
+        let conv = new Conv({
+            participants,
+            createdAt: time,
+            groupName
+        });
+    
+        await conv.save();
+    
+        res.status(201).send(conv);
+    } catch (e) {
+        console.log(e)
+        res.status(400).send(e)
     }
 });
 
