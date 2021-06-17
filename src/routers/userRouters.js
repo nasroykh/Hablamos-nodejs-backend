@@ -5,6 +5,7 @@ const router = new express.Router();
 const auth = require('../middleware/auth');
 const upload = require('../middleware/uploadFile');
 const sharp = require('sharp');
+const bcrypt = require('bcryptjs');
 
 
 
@@ -381,6 +382,40 @@ router.delete('/users/requests', auth, async (req, res) => {
 
     } catch (e) {
         res.status(500).send(e);
+    }
+});
+
+router.post('/users/update', auth, async (req, res) => {
+    try {
+        let { oldPassword, newPassword } = req.body;
+    
+        for (const key in req.body) {
+            if (key === 'oldPassword' || key === 'newPassword') {
+                continue;
+            }
+            
+            req.body[key] = req.body[key].trim();
+            
+            if (req.body[key]) {
+                req.user[key] = req.body[key];
+            }
+        }
+
+        if (oldPassword && newPassword) {
+            const isMatch = await bcrypt.compare(oldPassword, req.user.password);
+
+            if (isMatch) {
+                req.user.password = newPassword;
+            } else {
+                throw new Error('Old password is invalid')
+            }
+        }
+    
+        await req.user.save();
+    
+        res.status(201).send(req.user);
+    } catch (e) {
+        res.status(400).send(e.message)
     }
 });
 
