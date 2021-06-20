@@ -19,6 +19,12 @@ router.get('/convs', auth, async (req, res) => {
                 return res.status(404).send('No conversation');
             }
 
+            for (let i = 0; i < conv.messages.length; i++) {
+                if (conv.messages[i].file) {
+                    conv.messages[i].file = [];
+                }
+            }
+
             return res.status(200).send(conv);
         }
 
@@ -30,17 +36,29 @@ router.get('/convs', auth, async (req, res) => {
                 return res.status(404).send('No conversation');
             }
 
+            for (let i = 0; i < conv.messages.length; i++) {
+                if (conv.messages[i].file) {
+                    conv.messages[i].file = [];
+                }
+            }
+
             return res.status(200).send(conv);
         }
 
         //find all user convs
-        let convs = await Conv.find({participants: {$all: [req.user._id] }}).select('-messages');
+        let convs = await Conv.find({participants: {$all: [req.user._id] }});
 
         if (!convs) {
             return res.status(404).send('No conversations')
         }
 
         for (let i = 0; i < convs.length; i++) {
+            convs[i].messages = {
+                sender: convs[i].messages[convs[i].messages.length-1].sender,
+                message: convs[i].messages[convs[i].messages.length-1].message,
+                sentAt: convs[i].messages[convs[i].messages.length-1].sentAt,
+                file: convs[i].messages[convs[i].messages.length-1].file ? [] : undefined
+            };
             for (let j = 0; j < convs[i].participants.length; j++) {
                 let part = await User.findById(convs[i].participants[j]);
 
@@ -145,6 +163,12 @@ router.post('/convs/file', auth, upload.single('file'), async (req, res) => {
     
             let user = await User.findById(friendId);
             req.io.to(user.socketId).emit('notify:message', {_id: req.user._id, username: req.user.username});
+
+            for (let i = 0; i < conv.messages.length; i++) {
+                if (conv.messages[i].file) {
+                    conv.messages[i].file = [];
+                }
+            }
     
             return res.status(201).send({conv});
         }
@@ -199,7 +223,7 @@ router.get('/convs/:_id/file', async (req, res) => {
             throw new Error();
         }
 
-        res.set('Content-Type', 'image/png');
+        res.set('Content-Type', 'image/jpeg');
         res.status(200).send(message.file);
 
     } catch (e) {
