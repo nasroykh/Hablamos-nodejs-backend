@@ -28,7 +28,12 @@ const Conv = mongoose.model('conv', {
             },
             file: {
                 type: Buffer
-            }
+            }, 
+            seenBy: [
+                {
+                    type: String
+                }
+            ]
         }
     ]
 })

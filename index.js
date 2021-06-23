@@ -10,6 +10,7 @@ require('./src/db/mongoose');
 const userRouter = require('./src/routers/userRouters'); 
 const convRouter = require('./src/routers/convRouters'); 
 const User = require('./src/models/user');
+const Conv = require('./src/models/conv');
 
 /* EXPRESS APP VARIABLE */
 const app = express();
@@ -58,6 +59,19 @@ io.on('connection', (socket) => {
         await User.findByIdAndUpdate(_id, {socketId: ''});
         console.log('removed ' + _id + ' ' + socket.id)
     });
+
+    socket.on('message:seen', async (payload) => {
+        let conv = await Conv.findOne({messages: {$elemMatch: {_id: payload._id}}});
+
+        let updatedMessages = conv.messages.slice();
+
+        updatedMessages[updatedMessages.length-1].seenBy.push(payload.userId);
+
+        await Conv.findOneAndUpdate({messages: {$elemMatch: {_id: payload._id}}}, {messages: updatedMessages});
+
+        io.to(conv._id.toString()).emit('message:isseen', {_id: payload.userId, username: payload.username});
+
+    })
 
 });
 

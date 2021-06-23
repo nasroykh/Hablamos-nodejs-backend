@@ -19,6 +19,26 @@ router.get('/convs', auth, async (req, res) => {
                 return res.status(404).send('No conversation');
             }
 
+            if (conv.messages[conv.messages.length-1].sender.toString() !== req.user._id.toString()) {
+                let updatedMessages = conv.messages.slice();
+                if (!updatedMessages[updatedMessages.length-1].seenBy.includes(req.user._id)) {
+                    updatedMessages[updatedMessages.length-1].seenBy.push(req.user._id);
+                    await Conv.findByIdAndUpdate(_id, {messages: updatedMessages});
+                    req.io.to(conv._id.toString()).emit('message:isseen', {_id: req.user._id, username: req.user.username});
+                }
+            }
+
+            if (conv.groupName) {
+                for (let i = 0; i < conv.participants.length; i++) {
+                    let user = await User.findById(conv.participants[i]);
+
+                    conv.participants[i] = {
+                        _id: user._id,
+                        username: user.username
+                    }
+                }
+            }
+
             for (let i = 0; i < conv.messages.length; i++) {
                 if (conv.messages[i].file) {
                     conv.messages[i].file = [];
@@ -36,11 +56,21 @@ router.get('/convs', auth, async (req, res) => {
                 return res.status(404).send('No conversation');
             }
 
+            if (conv.messages[conv.messages.length-1].sender.toString() !== req.user._id.toString()) {
+                let updatedMessages = conv.messages.slice();
+                if (!updatedMessages[updatedMessages.length-1].seenBy.includes(req.user._id)) {
+                    updatedMessages[updatedMessages.length-1].seenBy.push(req.user._id);
+                    await Conv.findByIdAndUpdate(conv._id, {messages: updatedMessages});
+                    req.io.to(conv._id.toString()).emit('message:isseen', {_id: req.user._id, username: req.user.username});
+                }
+            }
+
             for (let i = 0; i < conv.messages.length; i++) {
                 if (conv.messages[i].file) {
                     conv.messages[i].file = [];
                 }
             }
+
 
             return res.status(200).send(conv);
         }
@@ -71,6 +101,7 @@ router.get('/convs', auth, async (req, res) => {
 
         res.status(200).send(convs);
     } catch (e) {
+            console.log(e)
             return res.status(500).send(e);
     }
 });
@@ -126,7 +157,8 @@ router.post('/convs/message', auth, async (req, res) => {
             req.io.to(user.socketId).emit('notify:message', {_id: req.user._id, username: req.user.username});
         }
 
-        req.io.to(_id).emit('message:receive', {message, sender: req.user._id, time});
+        let lastMessageId = existingConv.messages[existingConv.messages.length-1]._id.toString();
+        req.io.to(_id).emit('message:receive', {message, sender: req.user._id, time, lastMessageId});
         
         res.status(201).send('Message sent');
 
