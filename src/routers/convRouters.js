@@ -19,12 +19,14 @@ router.get('/convs', auth, async (req, res) => {
                 return res.status(404).send('No conversation');
             }
 
-            if (conv.messages[conv.messages.length-1].sender.toString() !== req.user._id.toString()) {
-                let updatedMessages = conv.messages.slice();
-                if (!updatedMessages[updatedMessages.length-1].seenBy.includes(req.user._id)) {
-                    updatedMessages[updatedMessages.length-1].seenBy.push(req.user._id);
-                    await Conv.findByIdAndUpdate(_id, {messages: updatedMessages});
-                    req.io.to(conv._id.toString()).emit('message:isseen', {_id: req.user._id, username: req.user.username});
+            if (conv.messages.length) {
+                if (conv.messages[conv.messages.length-1].sender.toString() !== req.user._id.toString()) {
+                    let updatedMessages = conv.messages.slice();
+                    if (!updatedMessages[updatedMessages.length-1].seenBy.includes(req.user._id)) {
+                        updatedMessages[updatedMessages.length-1].seenBy.push(req.user._id);
+                        await Conv.findByIdAndUpdate(_id, {messages: updatedMessages});
+                        req.io.to(conv._id.toString()).emit('message:isseen', {_id: req.user._id, username: req.user.username});
+                    }
                 }
             }
 
@@ -87,7 +89,8 @@ router.get('/convs', auth, async (req, res) => {
                 sender: convs[i].messages[convs[i].messages.length-1].sender,
                 message: convs[i].messages[convs[i].messages.length-1].message,
                 sentAt: convs[i].messages[convs[i].messages.length-1].sentAt,
-                file: convs[i].messages[convs[i].messages.length-1].file ? [] : undefined
+                file: convs[i].messages[convs[i].messages.length-1].file ? [] : undefined,
+                seenBy: convs[i].messages[convs[i].messages.length-1].seenBy
             };
             for (let j = 0; j < convs[i].participants.length; j++) {
                 let part = await User.findById(convs[i].participants[j]);
@@ -131,7 +134,13 @@ router.post('/convs/message', auth, async (req, res) => {
             await conv.save();
 
             let user = await User.findById(friendId);
-            req.io.to(user.socketId).emit('notify:message', {_id: req.user._id, username: req.user.username});
+            req.io.to(user.socketId).emit('notify:message', {
+                _id: req.user._id, 
+                username: req.user.username,
+                message,
+                sentAt: time,
+                convId: conv._id
+            });
 
             return res.status(201).send(conv);
         }
@@ -148,21 +157,38 @@ router.post('/convs/message', auth, async (req, res) => {
             for (let i = 0; i < existingConv.participants.length; i++) {
                 if (existingConv.participants[i] !== req.user._id) {
                     let user = await User.findById(existingConv.participants[i]);
-                    req.io.to(user.socketId).emit('notify:message', {_id: req.user._id, username: existingConv.groupName});
+                    req.io.to(user.socketId).emit('notify:message', {
+                        _id: req.user._id, 
+                        username: existingConv.groupName,
+                        message,
+                        sentAt: time,
+                        convId: existingConv._id
+                    });
                 }
             }
         } else {
             let user = await User.findById(friendId);
     
-            req.io.to(user.socketId).emit('notify:message', {_id: req.user._id, username: req.user.username});
+            req.io.to(user.socketId).emit('notify:message', {
+                _id: req.user._id, 
+                username: req.user.username,
+                message,
+                sentAt: time,
+                convId: existingConv._id
+            });
         }
 
-        let lastMessageId = existingConv.messages[existingConv.messages.length-1]._id.toString();
+        let lastMessageId;
+
+        if (existingConv.messages.length) {
+            lastMessageId = existingConv.messages[existingConv.messages.length-1]._id.toString();
+        }
         req.io.to(_id).emit('message:receive', {message, sender: req.user._id, time, lastMessageId});
         
         res.status(201).send('Message sent');
 
     } catch (e) {
+        console.log(e)
         res.status(500).send(e);
     }
 });
@@ -194,7 +220,13 @@ router.post('/convs/file', auth, upload.single('file'), async (req, res) => {
             await conv.save();
     
             let user = await User.findById(friendId);
-            req.io.to(user.socketId).emit('notify:message', {_id: req.user._id, username: req.user.username});
+            req.io.to(user.socketId).emit('notify:message', {
+                _id: req.user._id, 
+                username: req.user.username,
+                file: {type: 'Buffer', data: []},
+                sentAt: time,
+                convId: conv._id
+            });
 
             for (let i = 0; i < conv.messages.length; i++) {
                 if (conv.messages[i].file) {
@@ -217,18 +249,35 @@ router.post('/convs/file', auth, upload.single('file'), async (req, res) => {
             for (let i = 0; i < existingConv.participants.length; i++) {
                 if (existingConv.participants[i] !== req.user._id) {
                     let user = await User.findById(existingConv.participants[i]);
-                    req.io.to(user.socketId).emit('notify:message', {_id: req.user._id, username: existingConv.groupName});
+                    req.io.to(user.socketId).emit('notify:message', {
+                        _id: req.user._id, 
+                        username: existingConv.groupName,
+                        file: {type: 'Buffer', data: []},
+                        sentAt: time,
+                        convId: existingConv._id
+                    });
                 }
             }
         } else {
 
             let user = await User.findById(friendId);
     
-            req.io.to(user.socketId).emit('notify:message', {_id: req.user._id, username: req.user.username});
+            req.io.to(user.socketId).emit('notify:message', {
+                _id: req.user._id, 
+                username: req.user.username,
+                file: {type: 'Buffer', data: []},
+                sentAt: time,
+                convId: existingConv._id
+            });
         }
     
         let newConv = await Conv.findOne({messages: {$elemMatch: {file}}}).select('-participants -_id -createdAt');
-        let lastMessageId = newConv.messages[newConv.messages.length-1]._id.toString();
+
+        let lastMessageId;
+
+        if (newConv.messages.length) {
+            lastMessageId = newConv.messages[newConv.messages.length-1]._id.toString();
+        }
     
         req.io.to(_id).emit('message:receive', {file: true, lastMessageId, sender: req.user._id, time});
         
