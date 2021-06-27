@@ -115,7 +115,7 @@ router.post('/convs/message', auth, async (req, res) => {
         let time = Date.now();
 
         if (!message) {
-            return res.status(400).send('No message sent') 
+            return res.status(400).send('Cannot send empty message') 
         }
 
         if (!_id) {
@@ -188,7 +188,6 @@ router.post('/convs/message', auth, async (req, res) => {
         res.status(201).send('Message sent');
 
     } catch (e) {
-        console.log(e)
         res.status(500).send(e);
     }
 });
@@ -283,11 +282,11 @@ router.post('/convs/file', auth, upload.single('file'), async (req, res) => {
         
         res.status(201).send({lastMessageId});
     } catch (e) {
-        console.log(e)        
+        console.log(e.message)        
     }
 }, (error, req, res, next) => {
-    console.log(error)
-    res.status(400).send({error: error.message});
+    console.log(error.message)
+    res.status(400).send(error.message);
 });
 
 router.get('/convs/:_id/file', async (req, res) => {
@@ -316,11 +315,11 @@ router.post('/convs/group', auth, async (req, res) => {
     try {
         let {participants, groupName} = req.body;
 
-        if (participants.length === 1) {
-            return res.status(400).send('Cannot create a group with only 1 friend')
+        if (participants.length <= 1) {
+            return res.status(400).send('Cannot create a group chat with less than 3 members')
         }
 
-        if (!groupName) {
+        if (!groupName || !groupName.trim()) {
             return res.status(400).send('Please provide a group name')
         }
 

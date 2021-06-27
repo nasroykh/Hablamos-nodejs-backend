@@ -16,19 +16,19 @@ router.post('/users/signup', async (req,res) => {
         let {username, email, password, firstName, lastName} = req.body;
 
         if (!username) {
-            return res.status(400).send('Please provide a username.')
+            throw new Error('Please provide a valid username.');
         } else {
             username = username.toLowerCase().trim();
         }
 
         if (!email) {
-            return res.status(400).send('Please provide an email.')
+            throw new Error('Please provide a valid email.')
         } else {
             email = email.toLowerCase().trim();
         }
 
         if (!password) {
-            return res.status(400).send('Please provide a password.')
+            throw new Error('Please provide a valid password.')
         }
 
         if (firstName) {
@@ -46,7 +46,7 @@ router.post('/users/signup', async (req,res) => {
     
         res.status(201).send({user, token});
     } catch (e) {
-        res.status(400).send(e)
+        res.status(400).send(e.message)
     }
 });
 
@@ -61,7 +61,7 @@ router.post('/users/picture', auth, upload.single('picture'), async (req, res) =
     
     res.status(201).send('Picture uploaded');
 }, (error, req, res, next) => {
-    res.status(400).send({error: error.message});
+    res.status(400).send(error.message);
 });
 
 router.get('/users/:_id/picture', async (req, res) => {
@@ -69,7 +69,7 @@ router.get('/users/:_id/picture', async (req, res) => {
         const user = await User.findById(req.params._id)
 
         if (!user || !user.profilePicture) {
-            const admin = await User.findById('60c787e569a636aac0c7e25d');
+            const admin = await User.findById('60d8718c87223700159e756a');
             res.set('Content-Type', 'image/png');
             return res.status(200).send(admin.profilePicture);
         }
@@ -106,7 +106,7 @@ router.post('/users/login', async (req, res) => {
         
         res.status(200).send({user, token});
     } catch (e) {
-        res.status(400).send('Unable to login');
+        res.status(400).send(e.message);
     }
 });
 
@@ -231,7 +231,7 @@ router.post('/users/add', auth, async (req, res) => {
         res.status(200).send(user);
 
     } catch (e) {
-        res.status(500).send(e);
+        res.status(500).send(e.message);
     }
 });
 
@@ -265,7 +265,7 @@ router.post('/users/accept', auth, async (req, res) => {
         res.status(200).send('Accepted !');
 
     } catch (e) {
-        res.status(500).send(e);
+        res.status(500).send(e.message);
     }
 });
 
@@ -351,13 +351,14 @@ router.delete('/users/requests', auth, async (req, res) => {
                 return res.status(404).send('User not found');
             }
 
+            if (user.friends.includes(req.user._id)) {
+                return res.status(400).send('Already friends');
+            }
+
             if (!user.friendRequests.includes(req.user._id)) {
                 return res.status(404).send('No request sent to this user');
             }
 
-            if (user.friends.includes(req.user._id)) {
-                return res.status(400).send('Already friends');
-            }
     
             if (req.user.friendRequests.includes(_id)) {
                 return res.status(400).send('User already sent you a request');
@@ -396,7 +397,7 @@ router.post('/users/update', auth, async (req, res) => {
             
             req.body[key] = req.body[key].trim();
             
-            if (req.body[key]) {
+            if (req.body[key] || req.body[key].trim()) {
                 req.user[key] = req.body[key];
             }
         }
@@ -405,6 +406,11 @@ router.post('/users/update', auth, async (req, res) => {
             const isMatch = await bcrypt.compare(oldPassword, req.user.password);
 
             if (isMatch) {
+
+                if (!newPassword.trim()) {
+                    newPassword = newPassword.trim();
+                }
+
                 req.user.password = newPassword;
             } else {
                 throw new Error('Old password is invalid')
