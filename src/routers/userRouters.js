@@ -186,7 +186,7 @@ router.get('/users', auth, async (req, res) => {
             let sentRequest = users[i].friendRequests.includes(req.user._id);
             let isAdmin = users[i].username === 'admin';
 
-            if (isFriend || sentRequest) {
+            if (isFriend || sentRequest || isAdmin) {
                 users.splice(i, 1);
                 i--;
             }
