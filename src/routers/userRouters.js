@@ -69,7 +69,8 @@ router.get('/users/:_id/picture', async (req, res) => {
         const user = await User.findById(req.params._id)
 
         if (!user || !user.profilePicture) {
-            const admin = await User.findById('60d8718c87223700159e756a');
+
+            const admin = await User.findOne({username: 'admin'});
             res.set('Content-Type', 'image/png');
             return res.status(200).send(admin.profilePicture);
         }
@@ -166,6 +167,10 @@ router.get('/users', auth, async (req, res) => {
             return res.status(404).send('Enter a username');
         }
 
+        if (!username.match(/^[a-zA-Z0-9]/) ) {
+            return res.status(404).send('Enter a valid username');    
+        }
+
         let users = await User.find({username: {$regex: `^${username}`}});
         
         if (users.length) {
@@ -179,6 +184,7 @@ router.get('/users', auth, async (req, res) => {
         for (let i = 0; i < users.length; i++) {
             let isFriend = req.user.friends.includes(users[i]._id);
             let sentRequest = users[i].friendRequests.includes(req.user._id);
+            let isAdmin = users[i].username === 'admin';
 
             if (isFriend || sentRequest) {
                 users.splice(i, 1);

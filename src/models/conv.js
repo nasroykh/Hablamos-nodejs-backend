@@ -10,7 +10,10 @@ const Conv = mongoose.model('conv', {
     ],
     groupName: {
         type: String,
-        unique: true
+        trim: true,
+        index: true,
+        unique: true,
+        sparse: true
     },
     createdAt: {
         type: Number

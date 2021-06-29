@@ -85,13 +85,24 @@ router.get('/convs', auth, async (req, res) => {
         }
 
         for (let i = 0; i < convs.length; i++) {
-            convs[i].messages = {
-                sender: convs[i].messages[convs[i].messages.length-1].sender,
-                message: convs[i].messages[convs[i].messages.length-1].message,
-                sentAt: convs[i].messages[convs[i].messages.length-1].sentAt,
-                file: convs[i].messages[convs[i].messages.length-1].file ? [] : undefined,
-                seenBy: convs[i].messages[convs[i].messages.length-1].seenBy
-            };
+
+            if (convs[i].messages.length) {
+                convs[i].messages = {
+                    sender: convs[i].messages[convs[i].messages.length-1].sender,
+                    message: convs[i].messages[convs[i].messages.length-1].message,
+                    sentAt: convs[i].messages[convs[i].messages.length-1].sentAt,
+                    file: convs[i].messages[convs[i].messages.length-1].file ? [] : undefined,
+                    seenBy: convs[i].messages[convs[i].messages.length-1].seenBy
+                };
+            } else {
+                convs[i].messages = {
+                    sender: convs[i].groupName,
+                    message: 'Group created',
+                    sentAt: convs[i].createdAt,
+                    seenBy: []
+                };
+            }
+
             for (let j = 0; j < convs[i].participants.length; j++) {
                 let part = await User.findById(convs[i].participants[j]);
 
@@ -104,8 +115,7 @@ router.get('/convs', auth, async (req, res) => {
 
         res.status(200).send(convs);
     } catch (e) {
-            console.log(e)
-            return res.status(500).send(e);
+        return res.status(500).send(e);
     }
 });
 
@@ -188,7 +198,7 @@ router.post('/convs/message', auth, async (req, res) => {
         res.status(201).send('Message sent');
 
     } catch (e) {
-        res.status(500).send(e);
+        res.status(500).send(e.message);
     }
 });
 
@@ -339,8 +349,10 @@ router.post('/convs/group', auth, async (req, res) => {
     
         res.status(201).send(conv);
     } catch (e) {
-        console.log(e)
-        res.status(400).send(e)
+        if (e.message.includes('duplicate')) {
+            return res.status(400).send('Group name already exists');
+        }
+        res.status(400).send(e.message)
     }
 });
 
